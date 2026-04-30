@@ -1,0 +1,42 @@
+.env
+.env.local
+.env.*.local
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+.DS_Store
+.idea/
+.vscode/
+
+# Receita Federal raw dump (large, regenerable)
+data/receita/
+# But keep the watchlists and the placeholder
+!data/watchlist/
+!data/watchlist/**
+!data/.gitkeep
+
+notebooks/*.ipynb
+notebooks/outputs/
+
+supabase/.branches/
+supabase/.temp/
+
+# Pipeline outputs (not source — regenerated on every run)
+top_leads*.csv
+top_leads*.xlsx
+*.snapshot.html

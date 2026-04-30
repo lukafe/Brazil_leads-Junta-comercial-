@@ -1,0 +1,59 @@
+# Watchlist of key people in the Brazilian crypto market (partners / officers).
+#
+# Pipeline behaviour: it cross-references the Receita "partners" table against
+# this list. A positive match on a recently-registered CNPJ strongly suggests
+# a stealth subsidiary / new SPSAV created by a known executive.
+#
+# IMPORTANT: names in the Receita data appear in UPPERCASE without accents.
+# Normalisation is applied automatically, but use the canonical form here.
+#
+# Format:
+#   - nome: "REINALDO RABELO"      # full name in UPPERCASE without accents
+#     associations:
+#       - "Mercado Bitcoin (CEO 2018-2024)"
+#     category: exchange_executive | broker_executive | etc.
+#     priority: estrategico | ativo | long_tail
+#
+# Examples below are placeholders — confirm before relying on them at 100%.
+
+- nome: "REINALDO RABELO"
+  associations:
+    - "Mercado Bitcoin (historical CEO)"
+  category: exchange_executive
+  priority: estrategico
+
+- nome: "ROCELO LOPES"
+  associations:
+    - "Foxbit (co-founder)"
+  category: exchange_executive
+  priority: estrategico
+
+- nome: "JOAO CANHADA"
+  associations:
+    - "Foxbit (co-founder)"
+  category: exchange_executive
+  priority: estrategico
+
+- nome: "JULIO ALCANTARA"
+  associations:
+    - "NovaDAX (CEO)"
+  category: exchange_executive
+  priority: estrategico
+
+- nome: "ANDRE FRANCO"
+  associations:
+    - "Mynt / BTG (Head of Crypto)"
+  category: broker_executive
+  priority: estrategico
+
+- nome: "FERNANDA MARQUES"
+  associations:
+    - "Hashdex (Head BR)"
+  category: asset_executive
+  priority: ativo
+
+- nome: "MARCELO MILIESI"
+  associations:
+    - "Bitybank"
+  category: exchange_executive
+  priority: ativo

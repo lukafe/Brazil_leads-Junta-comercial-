@@ -1,0 +1,98 @@
+# Watchlist of known Brazilian crypto-market companies.
+#
+# Format:
+#   - cnpj: "12345678000190"   # optional — digits only. Leave empty if unknown.
+#     razao_social_aliases:    # alternates for fuzzy match against the corporate name
+#       - "MERCADO BITCOIN"
+#       - "MB SERVICOS"
+#     category: exchange | tokenization | asset | bank | broker | other
+#     notes: "..."
+#     priority: estrategico | ativo | long_tail   # optional, defaults to ativo
+#
+# Pipeline behaviour:
+#   1. If the company is found in the Receita Federal files (CNPJ or alias), it
+#      is included in the Excel even when its corporate name does not contain
+#      "SPSAV".
+#   2. If it is NOT found, it still appears in the Excel under the
+#      "watchlist_only" sheet — a heads-up that the company has not yet
+#      created its SPSAV.
+#
+# You can edit this file and re-run `psav ingest receita-dump` (or use
+# `psav watchlist add ...` to append entries via the CLI).
+
+- cnpj: "18213434000111"
+  razao_social_aliases:
+    - "MERCADO BITCOIN"
+    - "MB SERVICOS DIGITAIS"
+  category: exchange
+  priority: estrategico
+  notes: "Largest exchange in Brazil. Confirm CNPJ — could be a holding."
+
+- razao_social_aliases:
+    - "FOXBIT"
+  category: exchange
+  priority: estrategico
+  notes: "Top-3 BR. CNPJ to be confirmed."
+
+- razao_social_aliases:
+    - "NOVADAX"
+    - "NOVA DAX"
+  category: exchange
+  priority: estrategico
+  notes: "Subsidiary of NovaBlock Capital."
+
+- razao_social_aliases:
+    - "BITYBANK"
+  category: exchange
+  priority: estrategico
+  notes: "BR exchange, headquartered in Florianópolis."
+
+- razao_social_aliases:
+    - "BIPA"
+  category: exchange
+  priority: ativo
+  notes: "Bitcoin-focused exchange."
+
+- razao_social_aliases:
+    - "BINANCE"
+    - "BINANCE BRASIL"
+  category: exchange
+  priority: estrategico
+  notes: "Global. Operates in Brazil through a CTVM partnership. Likely Group A."
+
+- razao_social_aliases:
+    - "COINBASE"
+  category: exchange
+  priority: estrategico
+  notes: "Global. May serve Brazil via a Portuguese subsidiary."
+
+- razao_social_aliases:
+    - "MYNT"
+  category: broker
+  priority: estrategico
+  notes: "BTG Pactual digital-assets unit — likely Group A."
+
+- razao_social_aliases:
+    - "HASHDEX"
+  category: asset
+  priority: ativo
+  notes: "Crypto asset manager. May use a different legal modality."
+
+- razao_social_aliases:
+    - "TRANSFERO"
+  category: tokenization
+  priority: ativo
+  notes: "BRZ stablecoin issuer. May use a different legal modality."
+
+- razao_social_aliases:
+    - "LIQI"
+  category: tokenization
+  priority: ativo
+  notes: "Tokenisation of real-world assets."
+
+- razao_social_aliases:
+    - "BLOCKBR"
+    - "BLOCK BR"
+  category: tokenization
+  priority: ativo
+  notes: "Tokenisation."

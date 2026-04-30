@@ -1,0 +1,53 @@
+[project]
+name = "psav-leads"
+version = "0.1.0"
+description = "Sistema de inteligência de leads para auditoria IN BCB 701 (CertiK Brasil)"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Lucas Ceccon" }]
+
+dependencies = [
+    "polars>=1.0",
+    "duckdb>=1.0",
+    "httpx>=0.27",
+    "tenacity>=8.5",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "playwright>=1.45",
+    "selectolax>=0.3",
+    "supabase>=2.7",
+    "psycopg2-binary>=2.9",
+    "anthropic>=0.34",
+    "typer>=0.12",
+    "rich>=13.7",
+    "loguru>=0.7",
+    "slack-sdk>=3.31",
+    "xlsxwriter>=3.2",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+sched = ["apscheduler>=3.10"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pre-commit>=3.7",
+]
+
+[project.scripts]
+psav = "psav.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/psav"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
