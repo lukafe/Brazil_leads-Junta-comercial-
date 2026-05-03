@@ -56,6 +56,35 @@ def _parse_iso_date(val: Any) -> Any:
         return None
 
 
+_VERTEX_REDIRECT_HOSTS = (
+    "vertexaisearch.cloud.google.com",
+    "vertexaisearch.cloud.google.com/grounding-api-redirect",
+)
+
+
+def _clean_website(raw: str | None) -> str | None:
+    """Normalise + reject Gemini grounding-redirect URLs.
+
+    Gemini sometimes emits a vertex AI grounding-redirect URL instead of the
+    underlying destination — those URLs are time-limited and useless to a BD.
+    """
+    if not raw:
+        return None
+    url = raw.strip()
+    if not url or url.upper() == "NONE":
+        return None
+    lowered = url.lower()
+    if any(host in lowered for host in _VERTEX_REDIRECT_HOSTS):
+        return None
+    # Reject obviously wrong schemes (mailto:, tel:, etc.).
+    if "://" in url and not lowered.startswith(("http://", "https://")):
+        return None
+    # Add https:// when only a bare domain was returned.
+    if not lowered.startswith(("http://", "https://")):
+        url = "https://" + url.lstrip("/")
+    return url
+
+
 def _build_evidence_cell(enrichment: dict[str, Any]) -> str:
     """Concatenate the per-field evidence strings into one Excel cell."""
     parts: list[str] = []
@@ -167,8 +196,8 @@ async def _enrich_one(
                     nome_fantasia=nome_fant_existing,
                 )
                 ans, urls = await client.ask_json(p_text, p_schema)
-                website = (ans.get("website") or "").strip()
-                if website and website.upper() != "NONE":
+                website = _clean_website(ans.get("website"))
+                if website:
                     enrichment["website"] = website
                     enrichment["website_source"] = "gemini_search"
                 inferred_nf = (ans.get("nome_fantasia") or "").strip()

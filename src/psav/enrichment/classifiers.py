@@ -106,6 +106,10 @@ _CRYPTO_KEYWORD_REGEX = re.compile(
     flags=re.IGNORECASE,
 )
 
+# "BRASIL" / "BRAZIL" / "(BR)" tokens in the corporate name. Used as a
+# best-effort fallback when no foreign-parent token matched.
+_BR_NAME_TOKEN = re.compile(r"\b(?:BRASIL|BRAZIL|\(BR\))\b", re.IGNORECASE)
+
 
 # =========================================================================
 # Origin classifier
@@ -140,6 +144,16 @@ def classify_origin_from_razao(
                 None,
                 f"Corporate name contains Brazilian institution token '{key}'",
             )
+
+    # 3) "BRASIL" / "BRAZIL" / "(BR)" token — best-effort fallback. We only
+    # reach this branch when no foreign-parent token matched (so any "BRASIL"
+    # in the name is most likely the country, not a coincidental substring).
+    if _BR_NAME_TOKEN.search(norm):
+        return (
+            "brasileira",
+            None,
+            "Corporate name contains 'BRASIL/BRAZIL/(BR)' token (no foreign-parent match)",
+        )
 
     return None, None, None
 
