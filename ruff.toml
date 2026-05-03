@@ -8,3 +8,4 @@ ignore = ["E501"]
 [lint.per-file-ignores]
 "tests/*" = ["S101"]
 "src/psav/cli.py" = ["B008"]  # typer.Option/Argument em defaults é o padrão da lib
+"src/psav/exceptions.py" = ["N818"]  # GeminiQuotaExceeded reads better without "Error" suffix

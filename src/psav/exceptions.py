@@ -17,6 +17,18 @@ class EnrichmentError(PSAVError):
     """Failure in the enrichment layer (external APIs, scraping)."""
 
 
+class GeminiQuotaExceeded(EnrichmentError):
+    """Gemini API rejected the request with RESOURCE_EXHAUSTED / 429."""
+
+
+class GeminiTransientError(EnrichmentError):
+    """Transient failure (503, 502, server disconnect, idle TCP reset). Retriable."""
+
+
+class GeminiSchemaError(EnrichmentError):
+    """Gemini returned invalid JSON / failed schema validation."""
+
+
 class ScoringError(PSAVError):
     """Failure in score computation."""
 

@@ -25,6 +25,13 @@ LEADS_COLUMNS = [
     "cnpj",
     "razao_social",
     "nome_fantasia",
+    "website",
+    "origin",
+    "origin_parent_company",
+    "size",
+    "size_score",
+    "tech_profile",
+    "estimated_headcount",
     "capital_social",
     "data_constituicao",
     "data_ultima_alteracao",
@@ -34,6 +41,7 @@ LEADS_COLUMNS = [
     "endereco_municipio",
     "telefone",
     "email_contato",
+    "enrichment_evidence",
 ]
 
 WATCHLIST_ONLY_COLUMNS = [
@@ -70,14 +78,26 @@ def _format_cnpj(cnpj: str) -> str:
 
 
 def _enrich_company_row(c: dict[str, Any]) -> dict[str, Any]:
-    """Format CNPJ and convert cnae_secundarios to a human-readable string."""
+    """Format CNPJ and convert cnae_secundarios to a human-readable string.
+
+    Reads enrichment fields when present (Gemini-powered post-extraction
+    pass); leaves them ``None`` otherwise.
+    """
     cnaes = c.get("cnae_secundarios") or []
+    nome_fantasia = c.get("nome_fantasia") or c.get("nome_fantasia_enriched")
     return {
         "match_source": c.get("match_source", "spsav_regex"),
         "match_details": c.get("match_details", ""),
         "cnpj": _format_cnpj(c["cnpj"]),
         "razao_social": c.get("razao_social"),
-        "nome_fantasia": c.get("nome_fantasia"),
+        "nome_fantasia": nome_fantasia,
+        "website": c.get("website"),
+        "origin": c.get("origin"),
+        "origin_parent_company": c.get("origin_parent_company"),
+        "size": c.get("size"),
+        "size_score": c.get("size_score"),
+        "tech_profile": c.get("tech_profile"),
+        "estimated_headcount": c.get("estimated_headcount"),
         "capital_social": float(c["capital_social"]) if c.get("capital_social") else None,
         "data_constituicao": c.get("data_constituicao"),
         "data_ultima_alteracao": c.get("data_ultima_alteracao"),
@@ -87,6 +107,7 @@ def _enrich_company_row(c: dict[str, Any]) -> dict[str, Any]:
         "endereco_municipio": c.get("endereco_municipio"),
         "telefone": c.get("telefone"),
         "email_contato": c.get("email_contato"),
+        "enrichment_evidence": c.get("enrichment_evidence"),
     }
 
 

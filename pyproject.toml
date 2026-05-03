@@ -24,6 +24,8 @@ dependencies = [
     "slack-sdk>=3.31",
     "xlsxwriter>=3.2",
     "pyyaml>=6.0",
+    "google-genai>=0.3",
+    "fastexcel>=0.10",
 ]
 
 [project.optional-dependencies]

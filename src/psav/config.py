@@ -21,10 +21,11 @@ class Settings(BaseSettings):
     supabase_db_url: str = ""
 
     # External APIs
-    anthropic_api_key: str = ""
-    apify_token: str = ""
-    serpapi_key: str = ""
-    tavily_api_key: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
+    gemini_search_grounding: bool = True
+    enrichment_cache_path: Path = Field(default=Path("./data/enrichment_cache.json"))
+    enrichment_max_concurrency: int = 3
     casa_dos_dados_token: str = ""
 
     # Notifications

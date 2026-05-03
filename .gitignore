@@ -40,3 +40,6 @@ supabase/.temp/
 top_leads*.csv
 top_leads*.xlsx
 *.snapshot.html
+
+# Gemini enrichment cache (auto-regenerable, contains only public corp data)
+data/enrichment_cache.json

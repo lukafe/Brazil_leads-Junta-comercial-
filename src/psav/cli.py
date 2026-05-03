@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import csv
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -19,6 +20,11 @@ app.add_typer(ingest_app, name="ingest")
 
 watchlist_app = typer.Typer(help="Manage watchlists (known companies + people)")
 app.add_typer(watchlist_app, name="watchlist")
+
+enrich_app = typer.Typer(
+    help="Gemini-powered enrichment (origin / size / tech / nome_fantasia / website)"
+)
+app.add_typer(enrich_app, name="enrich")
 
 
 # =========================================================================
@@ -210,6 +216,104 @@ def watchlist_add_person(
         nome=nome, associations=list(association), category=category, priority=priority
     )
     console.print(f"[green]Added: {nome}[/green]")
+
+
+# =========================================================================
+# enrich excel — Gemini-powered post-extraction enrichment of top_leads.xlsx
+# =========================================================================
+@enrich_app.command("excel")
+def enrich_excel_cmd(
+    in_path: Path = typer.Option(
+        Path("top_leads.xlsx"),
+        "--in",
+        "-i",
+        help="Input .xlsx (must contain a 'leads' sheet).",
+    ),
+    out_path: Path = typer.Option(
+        Path("top_leads_enriched.xlsx"),
+        "--out",
+        "-o",
+        help="Output .xlsx — original sheets are preserved, leads sheet gains new columns.",
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Bypass cache and re-query Gemini for every CNPJ."
+    ),
+    only_cnpj: list[str] = typer.Option(
+        [],
+        "--only",
+        help="Restrict enrichment to these CNPJs (debug; can be repeated).",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Run deterministic classifiers only (no Gemini calls); useful for wiring tests.",
+    ),
+) -> None:
+    """Enrich an existing top_leads.xlsx with origin / size / tech_profile / website."""
+    from psav.config import get_settings
+    from psav.enrichment.enricher import enrich_companies
+    from psav.enrichment.excel_io import read_leads_sheet, read_other_sheets
+    from psav.exporters.excel import write_excel
+
+    settings = get_settings()
+    if not dry_run and not settings.gemini_api_key:
+        console.print(
+            "[red]GEMINI_API_KEY is missing in .env — set it or use --dry-run.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    leads = read_leads_sheet(in_path)
+    other_sheets = read_other_sheets(in_path)
+
+    # --force ⇒ skip cache READS for every CNPJ (force re-query) but still
+    # WRITE successful results so the next run is cheap.
+    force_set: list[str] | None = None
+    if force:
+        force_set = [str(c.get("cnpj", "")) for c in leads if c.get("cnpj")]
+
+    enrichments = asyncio.run(
+        enrich_companies(
+            leads,
+            settings,
+            use_cache=True,
+            force_refresh=force_set,
+            only_cnpj=list(only_cnpj) if only_cnpj else None,
+            dry_run=dry_run,
+        )
+    )
+
+    # Merge enrichment dicts into the leads dicts.
+    enriched_leads: list[dict[str, Any]] = []
+    for lead in leads:
+        cnpj = lead.get("cnpj")
+        if cnpj and cnpj in enrichments:
+            merged = {**lead, **enrichments[cnpj]}
+            enriched_leads.append(merged)
+        else:
+            enriched_leads.append(lead)
+
+    # Pull partners + watchlist_only + partner_matches sheets from the source xlsx.
+    def _to_records(name: str) -> list[dict[str, Any]]:
+        df = other_sheets.get(name)
+        return df.to_dicts() if df is not None else []
+
+    write_excel(
+        companies=enriched_leads,
+        partners=_to_records("socios"),
+        out_path=out_path,
+        source_label="receita_dump+gemini_enrichment",
+        watchlist_only=None,  # already in source xlsx; we re-emit via raw rows
+        partner_matches=None,
+    )
+    console.print(f"[green]Enrichment complete → {out_path}[/green]")
+    table = Table(title="Enrichment summary")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    table.add_row("input_leads", str(len(leads)))
+    table.add_row("enriched", str(len(enrichments)))
+    table.add_row("dry_run", str(dry_run))
+    table.add_row("cache_path", str(settings.enrichment_cache_path))
+    console.print(table)
 
 
 # =========================================================================
