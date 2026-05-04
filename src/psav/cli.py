@@ -26,6 +26,9 @@ enrich_app = typer.Typer(
 )
 app.add_typer(enrich_app, name="enrich")
 
+export_app = typer.Typer(help="Export BD-friendly outputs from enriched xlsx")
+app.add_typer(export_app, name="export")
+
 
 # =========================================================================
 # health
@@ -314,6 +317,36 @@ def enrich_excel_cmd(
     table.add_row("dry_run", str(dry_run))
     table.add_row("cache_path", str(settings.enrichment_cache_path))
     console.print(table)
+
+
+# =========================================================================
+# export bd — slim 5-column Excel for BD outreach
+# =========================================================================
+@export_app.command("bd")
+def export_bd_cmd(
+    in_path: Path = typer.Option(
+        Path("top_leads_enriched.xlsx"),
+        "--in",
+        "-i",
+        help="Enriched .xlsx (output of `psav enrich excel`).",
+    ),
+    out_path: Path = typer.Option(
+        Path("top_leads_bd.xlsx"),
+        "--out",
+        "-o",
+        help="Slim BD-focused output: razao_social / nome_fantasia / origem / porte / website.",
+    ),
+) -> None:
+    """Generate a slim, BD-friendly 5-column workbook from an enriched xlsx."""
+    from psav.exporters.bd_excel import write_bd_excel
+
+    if not in_path.exists():
+        console.print(
+            f"[red]Input file not found: {in_path}. Run `psav enrich excel` first.[/red]"
+        )
+        raise typer.Exit(code=1)
+    path = write_bd_excel(in_path, out_path)
+    console.print(f"[green]BD spreadsheet written: {path}[/green]")
 
 
 # =========================================================================

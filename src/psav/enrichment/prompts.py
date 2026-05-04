@@ -16,26 +16,42 @@ def prompt_website(
     cnpj_formatted: str,
     nome_fantasia: str | None,
 ) -> tuple[str, dict[str, Any]]:
-    text = f"""You are looking up the official website of a Brazilian company.
+    text = f"""You are researching a Brazilian company that registered as a virtual-asset service provider (SPSAV).
 
 Company details:
 - Corporate name (razão social): {razao_social}
 - CNPJ: {cnpj_formatted}
-- Trade name (nome fantasia): {nome_fantasia or "unknown"}
+- Existing trade name hint: {nome_fantasia or "unknown"}
 
-Use Google Search to find the company's primary public website. Constraints:
-- Prefer the canonical commercial URL (e.g. https://www.example.com.br) — NOT a LinkedIn page, NOT a directory listing, NOT a press article.
-- Prefer the .com.br or .com domain over subdomains.
-- If no public website exists, answer with the literal string "NONE".
-- Also infer the trade name (nome fantasia) used commercially — this often differs from the legal corporate name.
+Use Google Search aggressively across MULTIPLE source types:
+1. Official commercial site (preferred): .com.br, .com, .io, .xyz domains.
+2. LinkedIn company page (extract a website link from there).
+3. Instagram bio of a company handle (extract any link).
+4. Twitter/X bio for the same.
+5. CNPJ.biz / casadosdados.com.br listing for that exact CNPJ.
+6. Press releases / Bloomberg / Crunchbase profile (use to find their canonical URL).
+7. Brazilian regulatory filings (BCB / CVM) — they sometimes link a website.
 
-Respond with the website URL plus the inferred nome fantasia, citing the source page.
+Rules for the website field:
+- Return the canonical commercial URL with `https://` prefix.
+- DO NOT return a LinkedIn URL, a Crunchbase URL, a directory URL, or a press article — return the destination they LINK to.
+- If after thorough search the company truly has zero public web presence, return "NONE".
+
+Rules for the nome_fantasia field:
+- If LinkedIn / Instagram / website displays a commercial brand name distinct from the legal name, return that.
+- If the legal corporate name strips down to a clean brand (e.g. "MERCADO BITCOIN SPSAV LTDA" → "Mercado Bitcoin"), return that clean form.
+- DO NOT return "unknown", "Unknown", "NONE", "Not available", or "n/d" — if you cannot find or infer one, return an empty string "".
+
+Cite the page URL that justified your answer.
 """
     schema: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "website": {"type": "string", "description": "Official URL or 'NONE'"},
-            "nome_fantasia": {"type": "string", "description": "Trade name used commercially"},
+            "website": {"type": "string", "description": "Canonical https URL or 'NONE'"},
+            "nome_fantasia": {
+                "type": "string",
+                "description": "Commercial brand name (or empty string if unknown)",
+            },
             "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
             "source_url": {"type": "string"},
         },

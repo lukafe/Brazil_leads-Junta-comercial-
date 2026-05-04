@@ -61,18 +61,44 @@ _VERTEX_REDIRECT_HOSTS = (
     "vertexaisearch.cloud.google.com/grounding-api-redirect",
 )
 
+# Placeholder strings the LLM occasionally returns instead of leaving a field
+# blank — we treat them as "unknown" and store None. Compared lowercase.
+_UNKNOWN_PLACEHOLDERS = frozenset(
+    {
+        "",
+        "none",
+        "n/a",
+        "n/d",
+        "na",
+        "unknown",
+        "desconhecido",
+        "nao informado",
+        "não informado",
+        "not available",
+        "not found",
+        "no website",
+        "no public",
+        "none found",
+        "null",
+    }
+)
+
+
+def _is_placeholder(s: str | None) -> bool:
+    return not s or str(s).strip().lower() in _UNKNOWN_PLACEHOLDERS
+
 
 def _clean_website(raw: str | None) -> str | None:
-    """Normalise + reject Gemini grounding-redirect URLs.
+    """Normalise + reject Gemini grounding-redirect URLs and placeholder strings.
 
     Gemini sometimes emits a vertex AI grounding-redirect URL instead of the
     underlying destination — those URLs are time-limited and useless to a BD.
+    Also rejects "unknown", "NONE", "Not available", etc.
     """
-    if not raw:
+    if _is_placeholder(raw):
         return None
+    assert raw is not None  # for type-checker
     url = raw.strip()
-    if not url or url.upper() == "NONE":
-        return None
     lowered = url.lower()
     if any(host in lowered for host in _VERTEX_REDIRECT_HOSTS):
         return None
@@ -83,6 +109,14 @@ def _clean_website(raw: str | None) -> str | None:
     if not lowered.startswith(("http://", "https://")):
         url = "https://" + url.lstrip("/")
     return url
+
+
+def _clean_text_field(raw: str | None) -> str | None:
+    """Reject placeholder-y strings; return clean string or None."""
+    if _is_placeholder(raw):
+        return None
+    assert raw is not None
+    return raw.strip()
 
 
 def _build_evidence_cell(enrichment: dict[str, Any]) -> str:
@@ -200,7 +234,7 @@ async def _enrich_one(
                 if website:
                     enrichment["website"] = website
                     enrichment["website_source"] = "gemini_search"
-                inferred_nf = (ans.get("nome_fantasia") or "").strip()
+                inferred_nf = _clean_text_field(ans.get("nome_fantasia"))
                 if inferred_nf and not nome_fant_existing:
                     enrichment["nome_fantasia_enriched"] = inferred_nf
                     enrichment["nome_fantasia_source"] = "gemini_search"
