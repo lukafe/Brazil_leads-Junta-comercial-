@@ -26,6 +26,8 @@ LEADS_COLUMNS = [
     "razao_social",
     "nome_fantasia",
     "website",
+    "website_source",
+    "website_verified",
     "origin",
     "origin_parent_company",
     "size",
@@ -41,6 +43,7 @@ LEADS_COLUMNS = [
     "endereco_municipio",
     "telefone",
     "email_contato",
+    "research_link",
     "enrichment_evidence",
 ]
 
@@ -92,6 +95,8 @@ def _enrich_company_row(c: dict[str, Any]) -> dict[str, Any]:
         "razao_social": c.get("razao_social"),
         "nome_fantasia": nome_fantasia,
         "website": c.get("website"),
+        "website_source": c.get("website_source"),
+        "website_verified": c.get("website_verified"),
         "origin": c.get("origin"),
         "origin_parent_company": c.get("origin_parent_company"),
         "size": c.get("size"),
@@ -107,6 +112,7 @@ def _enrich_company_row(c: dict[str, Any]) -> dict[str, Any]:
         "endereco_municipio": c.get("endereco_municipio"),
         "telefone": c.get("telefone"),
         "email_contato": c.get("email_contato"),
+        "research_link": c.get("research_link"),
         "enrichment_evidence": c.get("enrichment_evidence"),
     }
 

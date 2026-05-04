@@ -15,10 +15,14 @@ class Enrichment(BaseModel):
 
     # --- Phase 2.A — BD-facing classification (Gemini-powered) ---
     website: str | None = None
-    website_source: str | None = None  # "razao_social_match" | "gemini_search" | "manual"
+    website_source: str | None = None  # "email_domain" | "gemini" | "cnpj_biz"
+    website_verified: bool = False  # True iff the URL was fetched + content matched
+    website_verification_evidence: str | None = None  # e.g. "cnpj_match"
 
     nome_fantasia_enriched: str | None = None  # populated only when Receita NULL
-    nome_fantasia_source: str | None = None  # "receita" | "gemini_search" | "website"
+    nome_fantasia_source: str | None = None  # "receita" | "cnpj_biz" | "gemini"
+
+    research_link: str | None = None  # URL where the BD can do their own quick lookup
 
     origin: Literal["brasileira", "internacional"] | None = None
     origin_parent_company: str | None = None  # e.g. "Bitso", "Bybit", "Itaú Unibanco"

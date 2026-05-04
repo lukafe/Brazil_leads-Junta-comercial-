@@ -1,18 +1,20 @@
-"""BD-focused slim Excel exporter — 5 columns optimised for outreach triage.
+"""BD-focused slim Excel exporter — clean English layout for outreach triage.
 
 Reads an enriched ``top_leads_enriched.xlsx`` and emits a single-sheet
-workbook with only the columns a BD officer needs to prioritise outreach:
+workbook with the columns a BD officer actually needs:
 
-  1. razao_social    — legal name (cross-checking with regulators)
-  2. nome_fantasia   — commercial brand name
-  3. origin          — brasileira | internacional (with country flag)
-  4. size            — small | mid | big (with priority emoji)
-  5. website         — clickable URL
+  Legal Name | Trade Name | Origin | Size | Website | Source | Research
 
-Rows are sorted by:
-  size desc (big > mid > small) → origin (brasileira first) → razao_social asc.
-
-Frozen header, autofilter, hyperlinked website cell.
+Design choices:
+  * No emojis anywhere (per BD-team request).
+  * No row background colours — only the header band is styled.
+  * Trade-name and website cells are filled when verified or, when no
+    verified value exists, blank — so the BD never wastes a click on a
+    fabricated guess.
+  * The Research column always carries a ``cnpj.biz/<digits>`` link the
+    BD can use to do their own quick lookup on blanks.
+  * The Source column shows ``email_domain``, ``cnpj_biz``, ``gemini``
+    (with a ``(unverified)`` suffix when the URL was not cross-checked).
 """
 
 from __future__ import annotations
@@ -29,21 +31,43 @@ BD_COLUMNS = [
     "origin",
     "size",
     "website",
+    "website_source",
+    "research_link",
 ]
 
 _SIZE_ORDER = {"big": 0, "mid": 1, "small": 2}
 _ORIGIN_ORDER = {"brasileira": 0, "internacional": 1, None: 2}
 
+_ORIGIN_LABEL = {
+    "brasileira": "Brazilian",
+    "internacional": "International",
+    None: "",
+}
+_SIZE_LABEL = {
+    "big": "Big",
+    "mid": "Mid",
+    "small": "Small",
+    None: "",
+}
+
+
+def _format_source(source: str | None, verified: bool | None) -> str:
+    if not source:
+        return ""
+    label = {
+        "email_domain": "Receita email domain",
+        "cnpj_biz": "cnpj.biz",
+        "gemini": "Gemini search",
+    }.get(source, source)
+    if verified is False:
+        return f"{label} (unverified)"
+    return label
+
 
 def write_bd_excel(in_path: Path, out_path: Path) -> Path:
-    """Read enriched xlsx, write slim BD-focused workbook."""
+    """Read enriched xlsx, write the slim BD workbook (English, no colours)."""
     df = pl.read_excel(in_path, sheet_name="leads")
     rows = df.to_dicts()
-
-    # Coalesce nome_fantasia (some rows have only the enriched one)
-    for r in rows:
-        if not r.get("nome_fantasia"):
-            r["nome_fantasia"] = r.get("nome_fantasia_enriched") or ""
 
     rows.sort(
         key=lambda r: (
@@ -60,7 +84,7 @@ def write_bd_excel(in_path: Path, out_path: Path) -> Path:
     workbook = xlsxwriter.Workbook(out_path)
     ws = workbook.add_worksheet("leads")
 
-    # Formats
+    # Formats — header is the only styled band.
     header_fmt = workbook.add_format(
         {
             "bold": True,
@@ -72,60 +96,59 @@ def write_bd_excel(in_path: Path, out_path: Path) -> Path:
         }
     )
     cell_fmt = workbook.add_format({"valign": "top", "text_wrap": True})
-    big_fmt = workbook.add_format(
-        {"valign": "top", "bg_color": "#dcfce7", "bold": True}
-    )
-    mid_fmt = workbook.add_format({"valign": "top", "bg_color": "#fef3c7"})
     link_fmt = workbook.add_format(
         {"valign": "top", "font_color": "#2563eb", "underline": 1}
     )
 
-    headers = {
-        "razao_social": "Razão Social",
-        "nome_fantasia": "Nome Fantasia",
-        "origin": "Origem",
-        "size": "Porte",
-        "website": "Website",
-    }
-    for col_idx, key in enumerate(BD_COLUMNS):
-        ws.write(0, col_idx, headers[key], header_fmt)
-
-    # Pretty values
-    origin_label = {
-        "brasileira": "🇧🇷 Brasileira",
-        "internacional": "🌎 Internacional",
-        None: "—",
-    }
-    size_label = {
-        "big": "🔥 Big",
-        "mid": "📊 Mid",
-        "small": "📌 Small",
-        None: "—",
-    }
+    headers = [
+        "Legal Name",
+        "Trade Name",
+        "Origin",
+        "Size",
+        "Website",
+        "Source",
+        "Research",
+    ]
+    for col_idx, h in enumerate(headers):
+        ws.write(0, col_idx, h, header_fmt)
 
     for row_idx, r in enumerate(rows, start=1):
-        size = r.get("size")
-        row_fmt = big_fmt if size == "big" else mid_fmt if size == "mid" else cell_fmt
-        ws.write_string(row_idx, 0, r.get("razao_social") or "", row_fmt)
-        ws.write_string(row_idx, 1, r.get("nome_fantasia") or "", row_fmt)
-        ws.write_string(row_idx, 2, origin_label.get(r.get("origin"), "—"), row_fmt)
-        ws.write_string(row_idx, 3, size_label.get(size, "—"), row_fmt)
+        ws.write_string(row_idx, 0, r.get("razao_social") or "", cell_fmt)
+        ws.write_string(row_idx, 1, r.get("nome_fantasia") or "", cell_fmt)
+        ws.write_string(row_idx, 2, _ORIGIN_LABEL.get(r.get("origin"), ""), cell_fmt)
+        ws.write_string(row_idx, 3, _SIZE_LABEL.get(r.get("size"), ""), cell_fmt)
+
         site = r.get("website") or ""
         if site and site.startswith(("http://", "https://")):
             ws.write_url(row_idx, 4, site, link_fmt, string=site)
         else:
-            ws.write_string(row_idx, 4, site, row_fmt)
+            ws.write_string(row_idx, 4, site, cell_fmt)
 
-    # Column widths
-    ws.set_column(0, 0, 60)  # razao_social
-    ws.set_column(1, 1, 35)  # nome_fantasia
-    ws.set_column(2, 2, 20)  # origem
-    ws.set_column(3, 3, 14)  # porte
-    ws.set_column(4, 4, 50)  # website
+        ws.write_string(
+            row_idx,
+            5,
+            _format_source(r.get("website_source"), r.get("website_verified")),
+            cell_fmt,
+        )
+
+        research = r.get("research_link") or ""
+        if research and research.startswith(("http://", "https://")):
+            ws.write_url(row_idx, 6, research, link_fmt, string="Open cnpj.biz")
+        else:
+            ws.write_string(row_idx, 6, "", cell_fmt)
+
+    # Column widths.
+    ws.set_column(0, 0, 60)  # Legal Name
+    ws.set_column(1, 1, 35)  # Trade Name
+    ws.set_column(2, 2, 16)  # Origin
+    ws.set_column(3, 3, 10)  # Size
+    ws.set_column(4, 4, 50)  # Website
+    ws.set_column(5, 5, 28)  # Source
+    ws.set_column(6, 6, 16)  # Research
 
     ws.freeze_panes(1, 0)
     if rows:
-        ws.autofilter(0, 0, len(rows), len(BD_COLUMNS) - 1)
+        ws.autofilter(0, 0, len(rows), len(headers) - 1)
 
     workbook.close()
     logger.info(f"BD Excel written: {out_path} ({len(rows)} leads)")

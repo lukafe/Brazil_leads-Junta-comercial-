@@ -13,6 +13,7 @@ from psav.config import Settings
 from psav.enrichment import cache as cache_mod
 from psav.enrichment import classifiers
 from psav.enrichment import prompts as prompt_mod
+from psav.enrichment import sources as src_mod
 from psav.enrichment.gemini_client import GeminiClient
 from psav.exceptions import GeminiQuotaExceeded
 from psav.utils.logging import logger
@@ -178,6 +179,8 @@ async def _enrich_one(
         "cnpj": cnpj,
         "website": None,
         "website_source": None,
+        "website_verified": False,  # True iff the URL was fetched and matched cnpj/razao
+        "website_verification_evidence": None,
         "nome_fantasia_enriched": None,
         "nome_fantasia_source": "receita" if nome_fant_existing else None,
         "origin": None,
@@ -194,11 +197,14 @@ async def _enrich_one(
         "tech_profile": None,
         "tech_profile_evidence": None,
         "tech_profile_source_url": None,
+        "research_link": None,
         "enrichment_evidence": None,
         "last_enriched_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     raw: dict[str, Any] = {}
     failures: list[str] = []
+    enrichment["research_link"] = src_mod.research_link(cnpj)
+    receita_email = company.get("email_contato")
 
     # ---- Deterministic pass ---------------------------------------------
     origin, parent, origin_ev = classifiers.classify_origin_from_razao(razao)
@@ -321,6 +327,68 @@ async def _enrich_one(
                 except Exception as e:
                     failures.append(f"tech_profile:{type(e).__name__}")
                     logger.warning(f"{cnpj} tech_profile prompt failed: {e}")
+
+    # ---- Multi-source candidate aggregation + cross-validation ----------
+    # Collect candidates from email-domain (Receita), Gemini (already done),
+    # and cnpj.biz scrape. Then verify by fetching each URL and checking
+    # whether the page mentions the CNPJ or razão social.
+    candidates = await asyncio.to_thread(
+        src_mod.collect_candidates,
+        cnpj_digits=cnpj,
+        razao_social=razao,
+        receita_email=receita_email,
+        receita_nome_fantasia=nome_fant_existing,
+        gemini_website=enrichment["website"],
+        gemini_nome_fantasia=enrichment["nome_fantasia_enriched"],
+    )
+    raw["candidates"] = {k: dict(v) for k, v in candidates.items()}
+
+    # Tiebreak priority for verified candidates (highest first).
+    source_priority = ("email_domain", "gemini")
+    verified_pick: tuple[str, str, str] | None = None  # (source, url, reason)
+    for source in source_priority:
+        cand = candidates.get(source) or {}
+        url = cand.get("website")
+        if not url:
+            continue
+        ok, reason = await asyncio.to_thread(
+            src_mod.verify_website,
+            url,
+            cnpj_digits=cnpj,
+            razao_social=razao,
+            nome_fantasia=enrichment["nome_fantasia_enriched"] or nome_fant_existing,
+        )
+        if ok:
+            verified_pick = (source, url, reason)
+            break
+
+    if verified_pick:
+        source, url, reason = verified_pick
+        enrichment["website"] = url
+        enrichment["website_source"] = source
+        enrichment["website_verified"] = True
+        enrichment["website_verification_evidence"] = reason
+    elif enrichment["website"] is None:
+        # No verified candidate AND we never set anything from Gemini → take
+        # the highest-priority unverified candidate (mark as unverified).
+        for source in source_priority:
+            cand = candidates.get(source) or {}
+            if cand.get("website"):
+                enrichment["website"] = cand["website"]
+                enrichment["website_source"] = source
+                enrichment["website_verified"] = False
+                enrichment["website_verification_evidence"] = "unverified"
+                break
+
+    # Trade-name aggregation: prefer Receita > Gemini.
+    if not enrichment["nome_fantasia_enriched"]:
+        for source in ("gemini",):
+            cand = candidates.get(source) or {}
+            nf = cand.get("nome_fantasia")
+            if nf and not _is_placeholder(nf):
+                enrichment["nome_fantasia_enriched"] = nf.strip()
+                enrichment["nome_fantasia_source"] = source
+                break
 
     # ---- Compute size score ---------------------------------------------
     score, breakdown = classifiers.compute_size_score(
